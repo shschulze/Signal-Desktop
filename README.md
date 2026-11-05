@@ -7,6 +7,26 @@ Signal Desktop links with Signal on [Android](https://github.com/signalapp/Signa
 
 [Install the production version](https://signal.org/download/) or help us out by [installing the beta version](https://support.signal.org/hc/articles/360007318471-Signal-Beta).
 
+## About this fork
+
+> **This is a personal fork, not an official Signal release.** It is not
+> affiliated with or endorsed by Signal Messenger.
+
+This fork **replaces the built-in spellchecker** — Chromium's Hunspell-based one,
+which downloaded dictionary files from Signal's servers — **with
+[LanguageTool](https://languagetool.org/)**, which checks spelling, grammar and
+style in the message composition box.
+
+LanguageTool is not bundled. To use it you must run your own
+[LanguageTool server](https://dev.languagetool.org/http-server) and point Signal
+at it under **Settings → Chats → LanguageTool server**; until you do, no spell
+checking happens at all. The language is detected from the text you type and can
+be overridden from the suggestion popup.
+
+Drafts are only sent to the server you configure, and the public LanguageTool API
+is not used by default — but note that if you point this at a remote server,
+**message text you are composing leaves your device**. Use a server you control.
+
 ## Got a question?
 
 You can find answers to a number of frequently asked questions on our [support site](https://support.signal.org/).

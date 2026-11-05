@@ -139,6 +139,10 @@ import type { WidthBreakpoint } from '../../components/_util.std.ts';
 import type { StateType } from '../reducer.preload.ts';
 import { DonationsErrorBoundary } from '../../components/DonationsErrorBoundary.dom.tsx';
 import {
+  toGrammarCheckStatus,
+  type GrammarCheckStatusType,
+} from '../../components/GrammarCheckSettings.dom.tsx';
+import {
   SmartPreferencesBlocked,
   type SmartPreferencesBlockedProps,
 } from './PreferencesBlocked.preload.tsx';
@@ -353,8 +357,6 @@ export function SmartPreferences(): JSX.Element | null {
   const resolvedLocale = window.SignalContext.getI18nLocale();
   const preferredSystemLocales =
     window.SignalContext.getPreferredSystemLocales();
-  const initialSpellCheckSetting =
-    window.SignalContext.config.appStartInitialSpellcheckSetting;
 
   // Settings - these capabilities are unchanging
 
@@ -441,6 +443,13 @@ export function SmartPreferences(): JSX.Element | null {
     useState<SystemTraySetting>();
   const [hasContentProtection, setContentProtection] = useState<boolean>();
   const [hasSpellCheck, setSpellCheck] = useState<boolean>();
+  const [languageToolUrl, setLanguageToolUrl] = useState<string>();
+  const [languageToolLanguage, setLanguageToolLanguage] = useState<string>();
+  const [languageToolLanguages, setLanguageToolLanguages] = useState<
+    ReadonlyArray<{ label: string; value: string }>
+  >([]);
+  const [languageToolStatus, setLanguageToolStatus] =
+    useState<GrammarCheckStatusType>('unknown');
   const [themeSetting, setThemeSetting] = useState<ThemeType>();
 
   useEffect(() => {
@@ -472,6 +481,27 @@ export function SmartPreferences(): JSX.Element | null {
       setSpellCheck(value);
     };
     drop(loadSpellCheck());
+
+    const loadLanguageTool = async () => {
+      const [url, language, status] = await Promise.all([
+        window.Events.getLanguageToolUrl(),
+        window.Events.getLanguageToolLanguage(),
+        window.Events.getLanguageToolStatus(),
+      ]);
+      if (canceled) {
+        return;
+      }
+      setLanguageToolUrl(url);
+      setLanguageToolLanguage(language);
+      setLanguageToolLanguages(
+        status.languages.map(({ name, longCode }) => ({
+          label: name,
+          value: longCode,
+        }))
+      );
+      setLanguageToolStatus(toGrammarCheckStatus(status.state));
+    };
+    drop(loadLanguageTool());
 
     const loadContentProtection = async () => {
       const value = await window.Events.getContentProtection();
@@ -518,6 +548,21 @@ export function SmartPreferences(): JSX.Element | null {
   const onSpellCheckChange = async (value: boolean) => {
     setSpellCheck(value);
     await window.Events.setSpellCheck(value);
+  };
+  const onLanguageToolUrlChange = (value: string) => {
+    setLanguageToolUrl(value);
+    setLanguageToolStatus('unknown');
+    drop(window.Events.setLanguageToolUrl(value));
+  };
+  const onLanguageToolLanguageChange = (value: string) => {
+    setLanguageToolLanguage(value);
+    drop(window.Events.setLanguageToolLanguage(value));
+  };
+  const onTestLanguageToolConnection = async () => {
+    const result = await window.Events.testLanguageToolConnection(
+      languageToolUrl ?? ''
+    );
+    setLanguageToolStatus(result.ok ? 'ready' : 'unreachable');
   };
   const onContentProtectionChange = async (value: boolean) => {
     setContentProtection(value);
@@ -1096,7 +1141,10 @@ export function SmartPreferences(): JSX.Element | null {
         hasTypingIndicators={hasTypingIndicators}
         hasUnreadReminders={hasUnreadReminders}
         i18n={i18n}
-        initialSpellCheckSetting={initialSpellCheckSetting}
+        languageToolUrl={languageToolUrl}
+        languageToolLanguage={languageToolLanguage}
+        languageToolLanguages={languageToolLanguages}
+        languageToolStatus={languageToolStatus}
         isAutoDownloadUpdatesSupported={isAutoDownloadUpdatesSupported}
         isAutoLaunchSupported={isAutoLaunchSupported}
         isContentProtectionNeeded={isContentProtectionNeeded}
@@ -1165,6 +1213,9 @@ export function SmartPreferences(): JSX.Element | null {
         onSelectedSpeakerChange={onSelectedSpeakerChange}
         onSentMediaQualityChange={onSentMediaQualityChange}
         onSpellCheckChange={onSpellCheckChange}
+        onLanguageToolUrlChange={onLanguageToolUrlChange}
+        onLanguageToolLanguageChange={onLanguageToolLanguageChange}
+        onTestLanguageToolConnection={onTestLanguageToolConnection}
         onTextFormattingChange={onTextFormattingChange}
         onThemeChange={onThemeChange}
         onToggleNavTabsCollapse={toggleNavTabsCollapse}

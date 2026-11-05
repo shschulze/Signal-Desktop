@@ -18,7 +18,7 @@ describe('updateDefaultSession', () => {
     sandbox.restore();
   });
 
-  it('sets the spellcheck URL', () => {
+  it('does not configure a Hunspell dictionary source', () => {
     const sesh = session.fromPartition(uuid());
     const stub = sandbox.stub(sesh, 'setSpellCheckerDictionaryDownloadURL');
 
@@ -33,17 +33,9 @@ describe('updateDefaultSession', () => {
     };
     updateDefaultSession(sesh, logger);
 
-    sinon.assert.calledOnce(stub);
-    sinon.assert.calledWith(
-      stub,
-      `https://updates.signal.org/desktop/hunspell_dictionaries/${process.versions.electron}/`
-    );
+    sinon.assert.notCalled(stub);
     sinon.assert.notCalled(logger.fatal);
     sinon.assert.notCalled(logger.error);
     sinon.assert.notCalled(logger.warn);
-    sinon.assert.notCalled(logger.info);
-    sinon.assert.notCalled(logger.debug);
-    sinon.assert.notCalled(logger.trace);
-    sinon.assert.notCalled(logger.child);
   });
 });

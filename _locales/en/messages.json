@@ -2970,8 +2970,56 @@
     "description": "Description of the media permission description"
   },
   "icu:spellCheckDescription": {
-    "messageformat": "Spell check text entered in message composition box",
-    "description": "Description of the spell check setting"
+    "messageformat": "Check spelling and grammar of text entered in the message composition box. Requires a LanguageTool server.",
+    "description": "Description of the spell and grammar check setting"
+  },
+  "icu:grammarCheckServer__title": {
+    "messageformat": "LanguageTool server",
+    "description": "Title of the setting where the user enters the URL of their LanguageTool server"
+  },
+  "icu:grammarCheckServer__description": {
+    "messageformat": "Message drafts are sent to this server for checking. Only use a server you control.",
+    "description": "Explains the privacy implications of the LanguageTool server setting"
+  },
+  "icu:grammarCheckServer__notConfigured": {
+    "messageformat": "No server configured",
+    "description": "Shown when no LanguageTool server URL has been entered"
+  },
+  "icu:grammarCheckServer__test": {
+    "messageformat": "Test connection",
+    "description": "Button that checks whether the configured LanguageTool server can be reached"
+  },
+  "icu:grammarCheckServer__reachable": {
+    "messageformat": "Server reachable",
+    "description": "Shown when the LanguageTool server responded successfully"
+  },
+  "icu:grammarCheckServer__unreachable": {
+    "messageformat": "Could not reach server",
+    "description": "Shown when the LanguageTool server did not respond"
+  },
+  "icu:grammarCheckLanguage__title": {
+    "messageformat": "Checking language",
+    "description": "Title of the setting that selects the language used for grammar checking"
+  },
+  "icu:grammarCheckLanguage__automatic": {
+    "messageformat": "Detect from text",
+    "description": "Option in the grammar checking language picker that lets LanguageTool detect the language from the message text"
+  },
+  "icu:grammarCheckDetectedLanguage": {
+    "messageformat": "Checked as {language}",
+    "description": "Shown in the grammar check popup, naming the language that was detected from the message text"
+  },
+  "icu:grammarCheckChangeLanguage__title": {
+    "messageformat": "Change language",
+    "description": "Accessible label for the language picker inside the grammar check popup"
+  },
+  "icu:grammarCheckIgnoreRule": {
+    "messageformat": "Ignore rule: {rule}",
+    "description": "Menu item that stops a grammar checking rule from being applied"
+  },
+  "icu:grammarCheckIgnoreWord": {
+    "messageformat": "Ignore word: {word}",
+    "description": "Menu item that stops a particular word from being flagged"
   },
   "icu:textFormattingDescription": {
     "messageformat": "Show text formatting popover when text is selected",

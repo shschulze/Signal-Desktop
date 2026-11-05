@@ -14,16 +14,10 @@ import {
   PRESENTABLE_SOURCE_THUMBNAIL_REQUESTED_WIDTH,
 } from '../ts/types/Calling.std.ts';
 
-const SPELL_CHECKER_DICTIONARY_DOWNLOAD_URL = `https://updates.signal.org/desktop/hunspell_dictionaries/${process.versions.electron}/`;
-
 export function updateDefaultSession(
   session: Session,
   logger: LoggerType
 ): void {
-  session.setSpellCheckerDictionaryDownloadURL(
-    SPELL_CHECKER_DICTIONARY_DOWNLOAD_URL
-  );
-
   session.setDisplayMediaRequestHandler(
     async (request, callback) => {
       const { frame, videoRequested, audioRequested } = request;
