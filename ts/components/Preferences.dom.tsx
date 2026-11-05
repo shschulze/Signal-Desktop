@@ -114,6 +114,8 @@ import { PinLearnMoreLink } from './standaloneRegistration/util/StepComponents.d
 import { CallingDeviceSelectionItems } from './CallingDeviceSelectionItems.dom.tsx';
 import { PreferencesList } from './preferences/PreferencesList.dom.tsx';
 import { PreferencesLanguageDialog } from './preferences/PreferencesLanguageDialog.dom.tsx';
+import type { GrammarCheckStatusType } from './GrammarCheckSettings.dom.tsx';
+import { GrammarCheckSettings } from './GrammarCheckSettings.dom.tsx';
 import { DeleteAccountConfirmDialog } from './preferences/DeleteAccountConfirmDialog.dom.tsx';
 
 const { isNumber, noop } = lodash;
@@ -172,6 +174,10 @@ export type PropsDataType = {
   hasRegistrationLock: boolean | undefined;
   hasRelayCalls?: boolean;
   hasSpellCheck: boolean | undefined;
+  languageToolUrl: string | undefined;
+  languageToolLanguage: string | undefined;
+  languageToolLanguages: ReadonlyArray<{ label: string; value: string }>;
+  languageToolStatus: GrammarCheckStatusType;
   hasStoriesDisabled: boolean;
   hasSvrPin: boolean;
   hasTextFormatting: boolean;
@@ -200,7 +206,6 @@ export type PropsDataType = {
   // Other props
   badge: BadgeType | undefined;
   hasFailedStorySends: boolean;
-  initialSpellCheckSetting: boolean;
   me: ConversationType;
   navTabsCollapsed: boolean;
   otherTabsUnreadCount: number;
@@ -374,6 +379,9 @@ type PropsFunctionType = {
   onSelectedSpeakerChange: SelectChangeHandlerType<AudioDevicePref>;
   onSentMediaQualityChange: SelectChangeHandlerType<SentMediaQualityType>;
   onSpellCheckChange: CheckboxChangeHandlerType;
+  onLanguageToolUrlChange: (url: string) => void;
+  onLanguageToolLanguageChange: (language: string) => void;
+  onTestLanguageToolConnection: () => void;
   onTextFormattingChange: CheckboxChangeHandlerType;
   onThemeChange: SelectChangeHandlerType<ThemeType>;
   onToggleNavTabsCollapse: (navTabsCollapsed: boolean) => void;
@@ -511,8 +519,11 @@ export function Preferences({
   hasTypingIndicators,
   hasUnreadReminders,
   hasKeepMutedChatsArchived,
+  languageToolUrl,
+  languageToolLanguage,
+  languageToolLanguages,
+  languageToolStatus,
   i18n,
-  initialSpellCheckSetting,
   isAutoDownloadUpdatesSupported,
   isAutoLaunchSupported,
   isContentProtectionNeeded,
@@ -574,6 +585,9 @@ export function Preferences({
   onSelectedSpeakerChange,
   onSentMediaQualityChange,
   onSpellCheckChange,
+  onLanguageToolUrlChange,
+  onLanguageToolLanguageChange,
+  onTestLanguageToolConnection,
   onTextFormattingChange,
   onThemeChange,
   onToggleNavTabsCollapse,
@@ -1244,16 +1258,6 @@ export function Preferences({
       </AxoPanel.Root>
     );
   } else if (settingsLocation.page === SettingsPage.Chats) {
-    let spellCheckDirtyText: string | undefined;
-    if (
-      hasSpellCheck !== undefined &&
-      initialSpellCheckSetting !== hasSpellCheck
-    ) {
-      spellCheckDirtyText = hasSpellCheck
-        ? i18n('icu:spellCheckWillBeEnabled')
-        : i18n('icu:spellCheckWillBeDisabled');
-    }
-
     const lastSyncDate = new Date(lastSyncTime || 0);
 
     const pageContents = (
@@ -1283,11 +1287,22 @@ export function Preferences({
         >
           <AxoSwitchItem.Root
             label={i18n('icu:spellCheckDescription')}
-            description={spellCheckDirtyText}
             disabled={hasSpellCheck === undefined}
             checked={hasSpellCheck ?? false}
             onCheckedChange={onSpellCheckChange}
           />
+          {hasSpellCheck ? (
+            <GrammarCheckSettings
+              i18n={i18n}
+              url={languageToolUrl ?? ''}
+              language={languageToolLanguage ?? ''}
+              languages={languageToolLanguages}
+              status={languageToolStatus}
+              onUrlChange={onLanguageToolUrlChange}
+              onLanguageChange={onLanguageToolLanguageChange}
+              onTestConnection={onTestLanguageToolConnection}
+            />
+          ) : null}
           <AxoSwitchItem.Root
             label={i18n('icu:textFormattingDescription')}
             checked={hasTextFormatting}

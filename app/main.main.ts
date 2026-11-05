@@ -40,7 +40,8 @@ import { z } from 'zod';
 import { packageJson } from '../ts/util/packageJson.main.ts';
 import * as GlobalErrors from './global_errors.main.ts';
 import { setup as setupCrashReports } from './crashReports.main.ts';
-import { setup as setupSpellChecker } from './spell_check.main.ts';
+import { setup as setupContextMenu } from './context_menu.main.ts';
+import { registerLanguageToolIpc } from './language_tool.main.ts';
 import { getDNSFallback } from './dns-fallback.main.ts';
 import { redactAll, addSensitivePath } from './privacy.main.ts';
 import { createSupportUrl } from '../ts/util/createSupportUrl.std.ts';
@@ -227,6 +228,8 @@ const defaultWebPrefs = {
     process.argv.some(arg => arg === '--enable-dev-tools') ||
     getEnvironment() !== Environment.PackagedApp ||
     !isProduction(app.getVersion()),
+  // Chromium's own spellchecker stays off: message drafts are checked by
+  // LanguageTool instead, in the renderer. See `ts/quill/grammar-check/`.
   spellcheck: false,
 };
 
@@ -700,12 +703,11 @@ async function createWindow() {
     ? Math.min(windowConfig.height, maxHeight)
     : DEFAULT_HEIGHT;
 
-  const [systemTraySetting, backgroundColor, spellcheck] = await Promise.all([
+  const [systemTraySetting, backgroundColor] = await Promise.all([
     systemTraySettingCache.get(),
     isTestEnvironment(getEnvironment())
       ? '#ffffff' // Tests should always be rendered on a white background
       : getBackgroundColor(),
-    getSpellCheckSetting(),
   ]);
 
   const startInTray =
@@ -732,7 +734,6 @@ async function createWindow() {
       preload: isTestEnvironment(getEnvironment())
         ? join(rootDir, 'ts', 'windows', 'main', 'tsx.preload.js')
         : join(rootDir, 'bundles', 'preload', 'wrapper.js'),
-      spellcheck,
     },
     icon: windowIcon,
     ...pick(windowConfig, ['autoHideMenuBar', 'x', 'y']),
@@ -793,13 +794,7 @@ async function createWindow() {
   }
 
   mainWindowCreated = true;
-  setupSpellChecker(
-    mainWindow,
-    getPreferredSystemLocales(),
-    getLocaleOverride(),
-    getResolvedMessagesLocale().i18n,
-    log
-  );
+  setupContextMenu(mainWindow, getResolvedMessagesLocale().i18n, log);
   if (!startInTray && windowConfig && windowConfig.maximized) {
     mainWindow.maximize();
   }
@@ -2289,6 +2284,7 @@ app.on('ready', async () => {
 
   settingsChannel = new SettingsChannel();
   settingsChannel.install();
+  registerLanguageToolIpc();
 
   settingsChannel.on('change:systemTraySetting', async rawSystemTraySetting => {
     const { openAtLogin } = app.getLoginItemSettings(

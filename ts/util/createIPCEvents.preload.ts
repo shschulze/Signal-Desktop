@@ -36,6 +36,16 @@ import type {
 import { SystemTraySetting } from '../types/SystemTraySetting.std.ts';
 import { putStickers } from '../textsecure/WebAPI.preload.ts';
 import type { PDFWindowPropsType } from '../windows/pdf/types.std.ts';
+import type {
+  GrammarCheckRequestType,
+  GrammarCheckResponseType,
+  GrammarCommandType,
+  GrammarContextHintType,
+  GrammarIgnoreRequestType,
+  GrammarReplacementType,
+  LanguageToolStatusType,
+  LanguageToolTestResultType,
+} from '../types/LanguageTool.std.ts';
 import OS from './os/osPreload.preload.ts';
 
 const { noop } = lodash;
@@ -57,6 +67,18 @@ export type IPCEventsCallbacksType = {
 
   cleanupDownloads: () => Promise<void>;
   getIsInCall: () => boolean;
+  checkGrammar: (
+    request: GrammarCheckRequestType
+  ) => Promise<GrammarCheckResponseType>;
+  getLanguageToolStatus: () => Promise<LanguageToolStatusType>;
+  testLanguageToolConnection: (
+    url: string
+  ) => Promise<LanguageToolTestResultType>;
+  ignoreGrammarSuggestion: (request: GrammarIgnoreRequestType) => Promise<void>;
+  sendGrammarContextHint: (hint: GrammarContextHintType) => void;
+  subscribeToGrammarCommands: (
+    callback: (command: GrammarCommandType) => void
+  ) => () => void;
   getMediaAccessStatus: (
     mediaType: 'screen' | 'microphone' | 'camera'
   ) => Promise<ReturnType<SystemPreferences['getMediaAccessStatus']>>;
@@ -96,6 +118,8 @@ type ValuesWithGetters = Omit<
   | 'systemTraySetting'
   | 'themeSetting'
   | 'zoomFactor'
+  | 'languageToolUrl'
+  | 'languageToolLanguage'
 >;
 
 // Right now everything is symmetrical
@@ -130,6 +154,8 @@ export type IPCEventsGettersType = {
   getSystemTraySetting: () => Promise<SystemTraySetting>;
   getThemeSetting: () => Promise<ThemeType>;
   getZoomFactor: () => Promise<ZoomFactorType>;
+  getLanguageToolUrl: () => Promise<string>;
+  getLanguageToolLanguage: () => Promise<string>;
   // Events
   onZoomFactorChange: (callback: ZoomFactorChangeCallback) => void;
   offZoomFactorChange: (callback: ZoomFactorChangeCallback) => void;
@@ -239,6 +265,18 @@ export function createIPCEvents(
     setThemeSetting: async (value: ThemeType) => {
       await setEphemeralSetting('themeSetting', value);
     },
+    getLanguageToolUrl: async () => {
+      return (await getEphemeralSetting('languageToolUrl')) ?? '';
+    },
+    setLanguageToolUrl: async (value: string) => {
+      await setEphemeralSetting('languageToolUrl', value.trim());
+    },
+    getLanguageToolLanguage: async () => {
+      return (await getEphemeralSetting('languageToolLanguage')) ?? '';
+    },
+    setLanguageToolLanguage: async (value: string) => {
+      await setEphemeralSetting('languageToolLanguage', value);
+    },
 
     // From IPCEventsCallbacksType
     addDarkOverlay: () => {
@@ -262,6 +300,40 @@ export function createIPCEvents(
     },
     cleanupDownloads: async () => {
       await ipcRenderer.invoke('cleanup-downloads');
+    },
+    checkGrammar: async (request: GrammarCheckRequestType) => {
+      return ipcRenderer.invoke('LanguageTool:check', request);
+    },
+    getLanguageToolStatus: async () => {
+      return ipcRenderer.invoke('LanguageTool:status');
+    },
+    testLanguageToolConnection: async (url: string) => {
+      return ipcRenderer.invoke('LanguageTool:test', url);
+    },
+    ignoreGrammarSuggestion: async (request: GrammarIgnoreRequestType) => {
+      await ipcRenderer.invoke('LanguageTool:ignore', request);
+    },
+    sendGrammarContextHint: (hint: GrammarContextHintType) => {
+      ipcRenderer.send('LanguageTool:contextHint', hint);
+    },
+    subscribeToGrammarCommands: callback => {
+      const onReplace = (
+        _event: Electron.IpcRendererEvent,
+        replacement: GrammarReplacementType
+      ) => {
+        callback({ type: 'replace', replacement });
+      };
+      const onRecheck = () => {
+        callback({ type: 'recheck' });
+      };
+
+      ipcRenderer.on('LanguageTool:replace', onReplace);
+      ipcRenderer.on('LanguageTool:recheck', onRecheck);
+
+      return () => {
+        ipcRenderer.off('LanguageTool:replace', onReplace);
+        ipcRenderer.off('LanguageTool:recheck', onRecheck);
+      };
     },
     getIsInCall: (): boolean => {
       return isInCall(window.reduxStore.getState());

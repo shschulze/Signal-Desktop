@@ -6,7 +6,7 @@ import { assert } from 'chai';
 import { stub } from 'sinon';
 import * as LocaleMatcher from '@formatjs/intl-localematcher';
 import { load, _getAvailableLocales } from '../../../app/locale.node.ts';
-import { FAKE_DEFAULT_LOCALE } from '../../../app/spell_check.main.ts';
+import { FAKE_DEFAULT_LOCALE } from '../../util/getLanguages.std.ts';
 import { HourCyclePreference } from '../../types/I18N.std.ts';
 
 const rootDir = join(__dirname, '..', '..', '..');

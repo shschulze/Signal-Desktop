@@ -26,6 +26,8 @@ export type EphemeralSettings = {
   contentProtection: boolean;
   systemTraySetting: SystemTraySetting;
   themeSetting: ThemeType;
+  languageToolUrl: string;
+  languageToolLanguage: string;
 };
 
 export type SettingsValuesType = IPCEventsValuesType & EphemeralSettings;

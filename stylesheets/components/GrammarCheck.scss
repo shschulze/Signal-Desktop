@@ -1,0 +1,144 @@
+// Copyright 2026 Signal Messenger, LLC
+// SPDX-License-Identifier: AGPL-3.0-only
+
+@use '../mixins';
+@use '../variables';
+
+// Underlines drawn with the CSS Custom Highlight API, so that Quill's Delta and
+// DOM are never modified for display purposes.
+::highlight(signal-grammar) {
+  text-decoration-color: variables.$color-accent-red;
+  text-decoration-line: underline;
+  text-decoration-skip-ink: none;
+  text-decoration-style: wavy;
+}
+
+.module-grammar-check-card {
+  @include mixins.font-body-1;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 25%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-inline-size: 320px;
+  padding-block: 10px;
+  padding-inline: 12px;
+  position: fixed;
+  z-index: 100;
+
+  @include mixins.light-theme {
+    background: variables.$color-white;
+    color: variables.$color-black;
+  }
+
+  @include mixins.dark-theme {
+    background: variables.$color-gray-80;
+    color: variables.$color-gray-05;
+  }
+
+  &__language {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+    justify-content: space-between;
+  }
+
+  &__language-label {
+    @include mixins.font-body-2;
+
+    @include mixins.light-theme {
+      color: variables.$color-gray-60;
+    }
+
+    @include mixins.dark-theme {
+      color: variables.$color-gray-25;
+    }
+  }
+
+  &__select {
+    @include mixins.font-body-2;
+    border-radius: 4px;
+    cursor: pointer;
+    max-inline-size: 150px;
+    padding-block: 2px;
+    padding-inline: 4px;
+
+    @include mixins.light-theme {
+      background: variables.$color-gray-04;
+      border: 1px solid variables.$color-gray-15;
+      color: variables.$color-black;
+    }
+
+    @include mixins.dark-theme {
+      background: variables.$color-gray-75;
+      border: 1px solid variables.$color-gray-45;
+      color: variables.$color-gray-05;
+    }
+  }
+
+  &__message {
+    @include mixins.font-body-2;
+  }
+
+  &__replacements {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  &__button {
+    border-radius: 4px;
+    cursor: pointer;
+    padding-block: 2px;
+    padding-inline: 8px;
+
+    @include mixins.light-theme {
+      background: variables.$color-gray-04;
+      color: variables.$color-black;
+    }
+
+    @include mixins.dark-theme {
+      background: variables.$color-gray-75;
+      color: variables.$color-gray-05;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  &__link {
+    @include mixins.font-body-2;
+    background: none;
+    color: variables.$color-accent-blue;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+  }
+}
+
+.GrammarCheckSettings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-block: 8px;
+  padding-inline: 16px;
+
+  &__label {
+    @include mixins.font-body-1;
+  }
+
+  &__status {
+    @include mixins.font-body-2;
+
+    @include mixins.light-theme {
+      color: variables.$color-gray-60;
+    }
+
+    @include mixins.dark-theme {
+      color: variables.$color-gray-25;
+    }
+  }
+}

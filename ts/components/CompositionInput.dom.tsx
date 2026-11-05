@@ -37,6 +37,7 @@ import {
 import { MonospaceBlot } from '../quill/formatting/monospaceBlot.std.ts';
 import { SpoilerBlot } from '../quill/formatting/spoilerBlot.std.ts';
 import { EmojiBlot, EmojiCompletion } from '../quill/emoji/index.dom.tsx';
+import { GrammarCheck } from '../quill/grammar-check/index.dom.ts';
 import type {
   DraftBodyRanges,
   HydratedBodyRangesType,
@@ -107,6 +108,7 @@ Quill.register(
     'formats/spoiler': SpoilerBlot,
     'modules/autoSubstituteAsciiEmojis': AutoSubstituteAsciiEmojis,
     'modules/emojiCompletion': EmojiCompletion,
+    'modules/grammarCheck': GrammarCheck,
     'modules/mentionCompletion': MentionCompletion,
     'modules/formattingMenu': FormattingMenu,
     'modules/signalClipboard': SignalClipboard,
@@ -242,6 +244,7 @@ export function CompositionInput(props: Props): ReactElement {
 
   const emojiCompletionRef = useRef<EmojiCompletion>(undefined);
   const mentionCompletionRef = useRef<MentionCompletion>(undefined);
+  const grammarCheckRef = useRef<GrammarCheck | undefined>(undefined);
   const quillRef = useRef<Quill>(undefined);
 
   const propsRef = useRef<Props>(props);
@@ -787,6 +790,8 @@ export function CompositionInput(props: Props): ReactElement {
       if (mentionCompletion !== undefined) {
         mentionCompletion.destroy();
       }
+
+      grammarCheckRef.current?.destroy();
     },
     []
   );
@@ -857,6 +862,9 @@ export function CompositionInput(props: Props): ReactElement {
           defaultValue={delta}
           modules={{
             toolbar: false,
+            grammarCheck: {
+              i18n,
+            },
             signalClipboard: {
               isDisabled: !isActive,
             },
@@ -998,6 +1006,15 @@ export function CompositionInput(props: Props): ReactElement {
               );
             }
             mentionCompletionRef.current = mentionCompletion;
+
+            // Grammar checking is optional: a failure here must never prevent
+            // the composer from working.
+            const grammarCheck = quill.getModule('grammarCheck');
+            if (grammarCheck instanceof GrammarCheck) {
+              grammarCheckRef.current = grammarCheck;
+            } else {
+              log.error('grammarCheck module not properly initialized');
+            }
           }}
         />
       );
