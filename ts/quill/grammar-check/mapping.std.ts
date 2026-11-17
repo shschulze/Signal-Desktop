@@ -60,6 +60,37 @@ export function overlapsEmbed(
   );
 }
 
+export type MatchSpanType = Readonly<{
+  offset: number;
+  length: number;
+}>;
+
+/**
+ * Re-anchors a match after the text at `[offset, offset + length)` was replaced
+ * with `newLength` characters.
+ *
+ * Matches before the replaced text keep their position, matches after it move
+ * by the length difference, and matches overlapping it are dropped because the
+ * text they referred to is gone.
+ */
+export function shiftMatchSpan<T extends MatchSpanType>(
+  match: T,
+  offset: number,
+  length: number,
+  newLength: number
+): T | undefined {
+  const end = offset + length;
+
+  if (match.offset < end && match.offset + match.length > offset) {
+    return undefined;
+  }
+  if (match.offset < end) {
+    return match;
+  }
+
+  return { ...match, offset: match.offset + newLength - length };
+}
+
 /**
  * LanguageTool occasionally reports zero-length matches (e.g. for spacing
  * rules). They cannot be drawn or replaced, so they are skipped.

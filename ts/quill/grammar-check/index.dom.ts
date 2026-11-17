@@ -18,6 +18,7 @@ import {
   extractTextFromOps,
   isUsableMatch,
   overlapsEmbed,
+  shiftMatchSpan,
 } from './mapping.std.ts';
 import { collectTextLeaves, rangeForIndices } from './mapping.dom.ts';
 
@@ -63,6 +64,7 @@ export class GrammarCheck {
   #hoverTimer: ReturnType<typeof setTimeout> | undefined;
   #requestId = 0;
   #disposed = false;
+  #isReplacing = false;
 
   #matches: Array<ActiveMatchType> = [];
   #lastCheckedText: string | undefined;
@@ -139,7 +141,11 @@ export class GrammarCheck {
 
   readonly #onTextChange = (): void => {
     this.#requestId += 1;
-    this.#clearMatches();
+    // Applying a fix rewrites the document; keep the remaining issues visible
+    // until the server returns results for the new text.
+    if (!this.#isReplacing) {
+      this.#clearMatches();
+    }
     this.#hideCard();
     this.#scheduleCheck();
   };
@@ -388,10 +394,38 @@ export class GrammarCheck {
   };
 
   #replace(offset: number, length: number, value: string): void {
-    this.#quill.updateContents(
-      new Delta().retain(offset).delete(length).insert(value),
-      Emitter.sources.USER
-    );
+    if (!this.#quill.isEnabled()) {
+      return;
+    }
+
+    this.#isReplacing = true;
+    try {
+      this.#quill.updateContents(
+        new Delta().retain(offset).delete(length).insert(value),
+        Emitter.sources.USER
+      );
+    } finally {
+      this.#isReplacing = false;
+    }
+
+    this.#matches = this.#matches.flatMap(active => {
+      const match = shiftMatchSpan(active.match, offset, length, value.length);
+      return match === undefined ? [] : [{ match, range: active.range }];
+    });
+
+    // Quill may have replaced the text nodes the old ranges pointed into.
+    this.#refreshRanges();
+  }
+
+  #refreshRanges(): void {
+    const leaves = collectTextLeaves(this.#quill);
+
+    this.#matches = this.#matches.flatMap(({ match }) => {
+      const range = rangeForIndices(leaves, match.offset, match.length);
+      return range === undefined ? [] : [{ match, range }];
+    });
+
+    this.#paintHighlights();
   }
 
   #showCard(activeMatch: ActiveMatchType): void {
