@@ -8,6 +8,7 @@ import {
   extractTextFromOps,
   isUsableMatch,
   overlapsEmbed,
+  shiftMatchSpan,
 } from '../../quill/grammar-check/mapping.std.ts';
 
 describe('grammar check mapping', () => {
@@ -84,6 +85,44 @@ describe('grammar check mapping', () => {
 
     it('allows everything when there are no embeds', () => {
       assert.isFalse(overlapsEmbed(0, 100, []));
+    });
+  });
+
+  describe('shiftMatchSpan', () => {
+    it('keeps matches before the replaced text', () => {
+      const match = { offset: 2, length: 3 };
+
+      assert.deepEqual(shiftMatchSpan(match, 10, 4, 1), match);
+    });
+
+    it('moves matches after the replaced text by the length difference', () => {
+      const match = { offset: 10, length: 3 };
+
+      assert.deepEqual(shiftMatchSpan(match, 2, 4, 1), {
+        offset: 7,
+        length: 3,
+      });
+      assert.deepEqual(shiftMatchSpan(match, 2, 1, 5), {
+        offset: 14,
+        length: 3,
+      });
+    });
+
+    it('drops matches overlapping the replaced text', () => {
+      assert.isUndefined(shiftMatchSpan({ offset: 4, length: 2 }, 4, 2, 1));
+      assert.isUndefined(shiftMatchSpan({ offset: 3, length: 5 }, 4, 2, 1));
+      assert.isUndefined(shiftMatchSpan({ offset: 5, length: 2 }, 4, 2, 1));
+    });
+
+    it('keeps matches that only touch the replaced text boundaries', () => {
+      const before = { offset: 2, length: 2 };
+      const after = { offset: 6, length: 2 };
+
+      assert.deepEqual(shiftMatchSpan(before, 4, 2, 1), before);
+      assert.deepEqual(shiftMatchSpan(after, 4, 2, 1), {
+        offset: 5,
+        length: 2,
+      });
     });
   });
 
