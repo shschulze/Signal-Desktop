@@ -140,13 +140,24 @@ export class GrammarCheck {
   }
 
   readonly #onTextChange = (): void => {
+    this.#hideCard();
+
+    const { text } = extractTextFromOps(this.#quill.getContents().ops ?? []);
+
+    // Formatting (e.g. bold) rewrites the DOM without changing the text, so
+    // the matches still apply. Their ranges point at text nodes Quill has
+    // replaced, though, so they have to be rebuilt rather than cleared.
+    if (text === this.#lastCheckedText) {
+      this.#refreshRanges();
+      return;
+    }
+
     this.#requestId += 1;
     // Applying a fix rewrites the document; keep the remaining issues visible
     // until the server returns results for the new text.
     if (!this.#isReplacing) {
       this.#clearMatches();
     }
-    this.#hideCard();
     this.#scheduleCheck();
   };
 
