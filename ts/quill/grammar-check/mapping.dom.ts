@@ -16,15 +16,7 @@ type BlotLikeType = Readonly<{
   domNode: Node;
   length: () => number;
   children?: Readonly<{
-    forEachAt: (
-      index: number,
-      length: number,
-      callback: (
-        child: BlotLikeType,
-        offset: number,
-        childLength: number
-      ) => void
-    ) => void;
+    forEach: (callback: (child: BlotLikeType) => void) => void;
   }>;
 }>;
 
@@ -36,8 +28,13 @@ function collectLeaves(
   const { children } = blot;
 
   if (children) {
-    children.forEachAt(0, blot.length(), (child, offset) => {
+    // `children.forEachAt` is not usable here: it reports how far into each
+    // child the walk started, which is 0 for every sibling when walking from
+    // index 0, so offsets are accumulated manually instead.
+    let offset = 0;
+    children.forEach(child => {
       collectLeaves(child, base + offset, result);
+      offset += child.length();
     });
     return;
   }
