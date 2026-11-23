@@ -46,7 +46,6 @@ const HIGHLIGHT_PRIORITIES: Record<GrammarMatchCategoryType, number> = {
   recommendation: 1,
 };
 const CHECK_DELAY_MS = 800;
-const HOVER_DELAY_MS = 350;
 const MIN_TEXT_LENGTH = 3;
 const MAX_MENU_REPLACEMENTS = 5;
 const MAX_CARD_REPLACEMENTS = 3;
@@ -81,7 +80,6 @@ export class GrammarCheck {
   readonly #options: GrammarCheckOptionsType;
 
   #checkTimer: ReturnType<typeof setTimeout> | undefined;
-  #hoverTimer: ReturnType<typeof setTimeout> | undefined;
   #requestId = 0;
   #disposed = false;
   #isReplacing = false;
@@ -113,8 +111,7 @@ export class GrammarCheck {
 
     quill.on(Emitter.events.TEXT_CHANGE, this.#onTextChange);
     quill.root.addEventListener('focus', this.#onFocus);
-    quill.root.addEventListener('mousedown', this.#onMouseDown);
-    quill.root.addEventListener('mousemove', this.#onMouseMove);
+    document.addEventListener('mousedown', this.#onMouseDown, true);
 
     window.addEventListener('scroll', this.#hideCard, true);
     document.addEventListener('keydown', this.#onKeyDown, true);
@@ -132,8 +129,7 @@ export class GrammarCheck {
     this.#clearTimers();
     this.#quill.off(Emitter.events.TEXT_CHANGE, this.#onTextChange);
     this.#quill.root.removeEventListener('focus', this.#onFocus);
-    this.#quill.root.removeEventListener('mousedown', this.#onMouseDown);
-    this.#quill.root.removeEventListener('mousemove', this.#onMouseMove);
+    document.removeEventListener('mousedown', this.#onMouseDown, true);
     window.removeEventListener('scroll', this.#hideCard, true);
     document.removeEventListener('keydown', this.#onKeyDown, true);
     this.#clearMatches();
@@ -152,10 +148,6 @@ export class GrammarCheck {
     if (this.#checkTimer !== undefined) {
       clearTimeout(this.#checkTimer);
       this.#checkTimer = undefined;
-    }
-    if (this.#hoverTimer !== undefined) {
-      clearTimeout(this.#hoverTimer);
-      this.#hoverTimer = undefined;
     }
   }
 
@@ -386,9 +378,15 @@ export class GrammarCheck {
   }
 
   readonly #onMouseDown = (event: MouseEvent): void => {
-    // Only right clicks need a hint; it lets the native menu offer
-    // replacements, which Electron cannot produce for us.
-    if (event.button !== 2 || !this.#isEnabled) {
+    // Clicks inside the card must not dismiss it before its buttons handle
+    // them.
+    if (this.#card?.contains(event.target as Node) === true) {
+      return;
+    }
+
+    this.#hideCard();
+
+    if (!this.#isEnabled || (event.button !== 0 && event.button !== 2)) {
       return;
     }
 
@@ -399,6 +397,15 @@ export class GrammarCheck {
       return;
     }
 
+    // Clicking an issue opens its card, so that merely moving the pointer
+    // doesn't cover the text the user is reading.
+    if (event.button === 0) {
+      this.#showCard(match);
+      return;
+    }
+
+    // Only right clicks need a hint; it lets the native menu offer
+    // replacements, which Electron cannot produce for us.
     window.Events.sendGrammarContextHint({
       message: match.match.message,
       replacements: match.match.replacements.slice(0, MAX_MENU_REPLACEMENTS),
@@ -409,27 +416,6 @@ export class GrammarCheck {
       offset: match.match.offset,
       length: match.match.length,
     });
-  };
-
-  readonly #onMouseMove = (event: MouseEvent): void => {
-    if (this.#hoverTimer !== undefined || this.#card !== undefined) {
-      return;
-    }
-
-    const { clientX, clientY } = event;
-
-    this.#hoverTimer = setTimeout(() => {
-      this.#hoverTimer = undefined;
-
-      if (this.#disposed) {
-        return;
-      }
-
-      const match = this.#matchAt(this.#indexAtPoint(clientX, clientY));
-      if (match !== undefined) {
-        this.#showCard(match);
-      }
-    }, HOVER_DELAY_MS);
   };
 
   readonly #onKeyDown = (event: KeyboardEvent): void => {
@@ -702,7 +688,6 @@ export class GrammarCheck {
     const card = document.createElement('div');
     card.className = 'module-grammar-check-card';
     card.setAttribute('role', 'dialog');
-    card.addEventListener('mouseleave', this.#hideCard);
 
     document.body.append(card);
     this.#card = card;

@@ -6,6 +6,7 @@ import Quill, { Delta } from '@signalapp/quill-cjs';
 import * as sinon from 'sinon';
 
 import { GrammarCheck } from '../../quill/grammar-check/index.dom.ts';
+import { collectTextLeaves } from '../../quill/grammar-check/mapping.dom.ts';
 import type {
   GrammarCheckResponseType,
   GrammarMatchType,
@@ -21,6 +22,7 @@ const HIGHLIGHT_NAMES = {
 type HighlightName = (typeof HIGHLIGHT_NAMES)[keyof typeof HIGHLIGHT_NAMES];
 
 const TEXT = 'Das ist ein Fehler\n';
+const CARD_SELECTOR = '.module-grammar-check-card';
 
 function tick(): Promise<void> {
   return new Promise(resolve => {
@@ -43,9 +45,11 @@ describe('GrammarCheck', () => {
   let quill: Quill;
   let grammarCheck: GrammarCheck | undefined;
   let sandbox: sinon.SinonSandbox;
+  let caretPosition: sinon.SinonStub | undefined;
 
   beforeEach(() => {
     sandbox = sinon.createSandbox();
+    caretPosition = undefined;
     container = document.createElement('div');
     document.body.append(container);
     quill = new Quill(container, { modules: {} });
@@ -99,6 +103,82 @@ describe('GrammarCheck', () => {
 
     return checkGrammar;
   }
+
+  function stubCaretAt(textOffset: number): void {
+    const leaves = collectTextLeaves(quill);
+    const leaf = leaves.find(
+      candidate =>
+        textOffset >= candidate.index &&
+        textOffset < candidate.index + candidate.length
+    );
+    if (leaf === undefined) {
+      assert.fail(`No text leaf at offset ${textOffset}`);
+    }
+
+    caretPosition ??= sandbox.stub(document, 'caretPositionFromPoint');
+    caretPosition.returns({
+      offsetNode: leaf.textNode,
+      offset: textOffset - leaf.index,
+      getClientRect: () => new DOMRect(),
+    });
+  }
+
+  function click(button = 0): void {
+    document.body.dispatchEvent(
+      new MouseEvent('mousedown', { bubbles: true, button })
+    );
+  }
+
+  function findCard(): HTMLElement | null {
+    return document.querySelector<HTMLElement>(CARD_SELECTOR);
+  }
+
+  it('opens the card when an issue is clicked', async () => {
+    await createChecked(TEXT);
+    stubCaretAt(TEXT.indexOf('Fehler'));
+
+    click();
+
+    assert.isNotNull(findCard());
+  });
+
+  it('does not open the card when the pointer merely moves', async () => {
+    await createChecked(TEXT);
+    stubCaretAt(TEXT.indexOf('Fehler'));
+
+    quill.root.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    await new Promise(resolve => {
+      setTimeout(resolve, 400);
+    });
+
+    assert.isNull(findCard());
+  });
+
+  it('closes the card when clicking somewhere else', async () => {
+    await createChecked(TEXT);
+    stubCaretAt(TEXT.indexOf('Fehler'));
+
+    click();
+    assert.isNotNull(findCard());
+
+    stubCaretAt(0);
+    click();
+
+    assert.isNull(findCard());
+  });
+
+  it('keeps the card open when clicking inside it', async () => {
+    await createChecked(TEXT);
+    stubCaretAt(TEXT.indexOf('Fehler'));
+
+    click();
+    const card = findCard();
+    assert.isNotNull(card);
+
+    card?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+
+    assert.strictEqual(findCard(), card);
+  });
 
   it('highlights spelling matches', async () => {
     await createChecked(TEXT);
