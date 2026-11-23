@@ -5,12 +5,29 @@
 @use '../variables';
 
 // Underlines drawn with the CSS Custom Highlight API, so that Quill's Delta and
-// DOM are never modified for display purposes.
-::highlight(signal-grammar) {
-  text-decoration-color: variables.$color-accent-red;
+// DOM are never modified for display purposes. The colors mirror LanguageTool's
+// browser add-on and identify the category of each issue.
+@mixin grammar-check-underline($color) {
+  text-decoration-color: $color;
   text-decoration-line: underline;
   text-decoration-skip-ink: none;
   text-decoration-style: wavy;
+}
+
+::highlight(signal-grammar-spelling) {
+  @include grammar-check-underline(variables.$color-accent-red);
+}
+
+::highlight(signal-grammar-grammar) {
+  @include grammar-check-underline(#f2b24c);
+}
+
+::highlight(signal-grammar-style) {
+  @include grammar-check-underline(#8f7fff);
+}
+
+::highlight(signal-grammar-recommendation) {
+  @include grammar-check-underline(#80b3e2);
 }
 
 .module-grammar-check-card {

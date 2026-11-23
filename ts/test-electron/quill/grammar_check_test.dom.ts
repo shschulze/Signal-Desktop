@@ -6,9 +6,20 @@ import Quill, { Delta } from '@signalapp/quill-cjs';
 import * as sinon from 'sinon';
 
 import { GrammarCheck } from '../../quill/grammar-check/index.dom.ts';
-import type { GrammarCheckResponseType } from '../../types/LanguageTool.std.ts';
+import type {
+  GrammarCheckResponseType,
+  GrammarMatchType,
+} from '../../types/LanguageTool.std.ts';
 
-const HIGHLIGHT_NAME = 'signal-grammar';
+const HIGHLIGHT_NAMES = {
+  spelling: 'signal-grammar-spelling',
+  grammar: 'signal-grammar-grammar',
+  style: 'signal-grammar-style',
+  recommendation: 'signal-grammar-recommendation',
+} as const;
+
+type HighlightName = (typeof HIGHLIGHT_NAMES)[keyof typeof HIGHLIGHT_NAMES];
+
 const TEXT = 'Das ist ein Fehler\n';
 
 function tick(): Promise<void> {
@@ -17,8 +28,10 @@ function tick(): Promise<void> {
   });
 }
 
-function highlightedText(): Array<string> {
-  const highlight = CSS.highlights.get(HIGHLIGHT_NAME);
+function highlightedText(
+  name: HighlightName = HIGHLIGHT_NAMES.spelling
+): Array<string> {
+  const highlight = CSS.highlights.get(name);
   if (highlight === undefined) {
     return [];
   }
@@ -43,24 +56,28 @@ describe('GrammarCheck', () => {
     grammarCheck = undefined;
     container.remove();
     sandbox.restore();
-    CSS.highlights.delete(HIGHLIGHT_NAME);
+    for (const name of Object.values(HIGHLIGHT_NAMES)) {
+      CSS.highlights.delete(name);
+    }
   });
 
-  async function createChecked(input: string): Promise<sinon.SinonStub> {
+  async function createChecked(
+    input: string,
+    matchOverrides: ReadonlyArray<Partial<GrammarMatchType>> = [{}]
+  ): Promise<sinon.SinonStub> {
     const offset = input.indexOf('Fehler');
     const response: GrammarCheckResponseType = {
       ok: true,
-      matches: [
-        {
-          message: 'Möglicher Tippfehler.',
-          replacements: ['Fehler'],
-          offset,
-          length: 'Fehler'.length,
-          ruleId: 'MORFOLOGIK_RULE_DE_DE',
-          ruleDescription: 'Rechtschreibung',
-          issueType: 'misspelling',
-        },
-      ],
+      matches: matchOverrides.map(overrides => ({
+        message: 'Möglicher Tippfehler.',
+        replacements: ['Fehler'],
+        offset,
+        length: 'Fehler'.length,
+        ruleId: 'MORFOLOGIK_RULE_DE_DE',
+        ruleDescription: 'Rechtschreibung',
+        issueType: 'misspelling',
+        ...overrides,
+      })),
     };
 
     const checkGrammar = sandbox.stub().resolves(response);
@@ -83,10 +100,83 @@ describe('GrammarCheck', () => {
     return checkGrammar;
   }
 
-  it('highlights matches', async () => {
+  it('highlights spelling matches', async () => {
     await createChecked(TEXT);
 
-    assert.deepEqual(highlightedText(), ['Fehler']);
+    assert.deepEqual(highlightedText(HIGHLIGHT_NAMES.spelling), ['Fehler']);
+  });
+
+  it('treats known spelling rule ids as spelling', async () => {
+    await createChecked(TEXT, [
+      {
+        ruleId: 'HUNSPELL_RULE',
+        issueType: 'grammar',
+      },
+    ]);
+
+    assert.deepEqual(highlightedText(HIGHLIGHT_NAMES.spelling), ['Fehler']);
+    assert.deepEqual(highlightedText(HIGHLIGHT_NAMES.grammar), []);
+  });
+
+  it('uses the grammar color for grammar issue types', async () => {
+    await createChecked(TEXT, [
+      {
+        ruleId: 'DE_AGREEMENT',
+        issueType: 'grammar',
+      },
+    ]);
+
+    assert.deepEqual(highlightedText(HIGHLIGHT_NAMES.grammar), ['Fehler']);
+    assert.deepEqual(highlightedText(HIGHLIGHT_NAMES.spelling), []);
+  });
+
+  it('uses the style color for style issue types', async () => {
+    await createChecked(TEXT, [
+      {
+        ruleId: 'STYLE_RULE',
+        issueType: 'style',
+      },
+    ]);
+
+    assert.deepEqual(highlightedText(HIGHLIGHT_NAMES.style), ['Fehler']);
+  });
+
+  it('uses the recommendation color for recommendation issue types', async () => {
+    await createChecked(TEXT, [
+      {
+        ruleId: 'RECOMMENDATION_RULE',
+        issueType: 'RECOMMENDATION',
+      },
+    ]);
+
+    assert.deepEqual(highlightedText(HIGHLIGHT_NAMES.recommendation), [
+      'Fehler',
+    ]);
+  });
+
+  it('treats spoken-language register issues as style', async () => {
+    await createChecked(TEXT, [
+      {
+        ruleId: 'REGISTER_RULE',
+        issueType: 'register',
+      },
+    ]);
+
+    assert.deepEqual(highlightedText(HIGHLIGHT_NAMES.style), ['Fehler']);
+  });
+
+  it('prioritizes errors over suggestions when matches overlap', async () => {
+    await createChecked(TEXT, [
+      { ruleId: 'STYLE_RULE', issueType: 'style' },
+      { ruleId: 'MORFOLOGIK_RULE_DE_DE', issueType: 'misspelling' },
+    ]);
+
+    assert.deepEqual(highlightedText(HIGHLIGHT_NAMES.spelling), ['Fehler']);
+    assert.deepEqual(highlightedText(HIGHLIGHT_NAMES.style), ['Fehler']);
+    assert.isAbove(
+      CSS.highlights.get(HIGHLIGHT_NAMES.spelling)?.priority ?? 0,
+      CSS.highlights.get(HIGHLIGHT_NAMES.style)?.priority ?? 0
+    );
   });
 
   it('keeps highlights when formatting changes the DOM but not the text', async () => {

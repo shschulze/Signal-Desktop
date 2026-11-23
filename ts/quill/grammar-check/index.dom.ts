@@ -21,10 +21,30 @@ import {
   shiftMatchSpan,
 } from './mapping.std.ts';
 import { collectTextLeaves, rangeForIndices } from './mapping.dom.ts';
+import {
+  GRAMMAR_MATCH_CATEGORIES,
+  categorizeGrammarMatch,
+  type GrammarMatchCategoryType,
+} from './categorize.std.ts';
 
 const log = createLogger('grammarCheck');
 
-const HIGHLIGHT_NAME = 'signal-grammar';
+const HIGHLIGHT_NAMES: Record<GrammarMatchCategoryType, string> = {
+  spelling: 'signal-grammar-spelling',
+  grammar: 'signal-grammar-grammar',
+  style: 'signal-grammar-style',
+  recommendation: 'signal-grammar-recommendation',
+};
+
+// Overlapping matches from different categories are painted on top of each
+// other. Give the more severe category the higher priority so the visible
+// underline does not depend on registration order.
+const HIGHLIGHT_PRIORITIES: Record<GrammarMatchCategoryType, number> = {
+  spelling: 4,
+  grammar: 3,
+  style: 2,
+  recommendation: 1,
+};
 const CHECK_DELAY_MS = 800;
 const HOVER_DELAY_MS = 350;
 const MIN_TEXT_LENGTH = 3;
@@ -278,21 +298,36 @@ export class GrammarCheck {
       return;
     }
 
-    if (this.#matches.length === 0) {
-      CSS.highlights.delete(HIGHLIGHT_NAME);
-      return;
+    const rangesByCategory = new Map<GrammarMatchCategoryType, Array<Range>>();
+    for (const { match, range } of this.#matches) {
+      const category = categorizeGrammarMatch(match);
+      const ranges = rangesByCategory.get(category);
+      if (ranges === undefined) {
+        rangesByCategory.set(category, [range]);
+      } else {
+        ranges.push(range);
+      }
     }
 
-    CSS.highlights.set(
-      HIGHLIGHT_NAME,
-      new Highlight(...this.#matches.map(({ range }) => range))
-    );
+    for (const category of GRAMMAR_MATCH_CATEGORIES) {
+      const name = HIGHLIGHT_NAMES[category];
+      const ranges = rangesByCategory.get(category);
+      if (ranges === undefined) {
+        CSS.highlights.delete(name);
+      } else {
+        const highlight = new Highlight(...ranges);
+        highlight.priority = HIGHLIGHT_PRIORITIES[category];
+        CSS.highlights.set(name, highlight);
+      }
+    }
   }
 
   #clearMatches(): void {
     this.#matches = [];
     if (supportsHighlights()) {
-      CSS.highlights.delete(HIGHLIGHT_NAME);
+      for (const category of GRAMMAR_MATCH_CATEGORIES) {
+        CSS.highlights.delete(HIGHLIGHT_NAMES[category]);
+      }
     }
   }
 
@@ -326,10 +361,24 @@ export class GrammarCheck {
       return undefined;
     }
 
-    return this.#matches.find(
-      ({ match }) =>
-        index >= match.offset && index < match.offset + match.length
-    );
+    // When matches overlap, prefer the same category that is painted on top so
+    // that hover cards and the context menu agree with the visible underline.
+    let best: ActiveMatchType | undefined;
+    let bestPriority = 0;
+    for (const active of this.#matches) {
+      const { match } = active;
+      if (index < match.offset || index >= match.offset + match.length) {
+        continue;
+      }
+
+      const priority = HIGHLIGHT_PRIORITIES[categorizeGrammarMatch(match)];
+      if (best === undefined || priority > bestPriority) {
+        best = active;
+        bestPriority = priority;
+      }
+    }
+
+    return best;
   }
 
   #wordFor(match: GrammarMatchType): string {
